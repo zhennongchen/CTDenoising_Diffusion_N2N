@@ -1,0 +1,61 @@
+FROM nvidia/cuda:11.0.3-cudnn8-devel-ubuntu20.04
+
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub \
+    && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/3bf863cc.pub
+
+RUN apt-get update && apt-get install -y \
+    wget \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    python3-pip \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    curl \
+    git \
+    libopenexr-dev \
+    git-lfs && \
+    apt clean
+
+# Install Python 3.8.17 manually
+RUN wget https://www.python.org/ftp/python/3.8.17/Python-3.8.17.tgz && \
+    tar -xvf Python-3.8.17.tgz && \
+    cd Python-3.8.17 && \
+    ./configure --enable-optimizations && \
+    make -j$(nproc) && \
+    make altinstall
+
+# Set Python 3.8 as the default
+RUN rm /usr/bin/python3 && \
+    ln -s /usr/bin/python3.8 /usr/bin/python3 && \
+    ln -s /usr/bin/python3.8 /usr/bin/python
+
+
+RUN python3 -m pip install --upgrade pip
+
+# Fix missing NVIDIA public key
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub || true
+
+# Install git
+RUN apt-get update && apt-get install -y git
+
+# install pytorch
+# torch < 2.0.0
+RUN python3 -m pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+
+# # install requirements
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+COPY requirements.txt /env/requirements.txt
+RUN python3 -m pip install --no-cache-dir -r /env/requirements.txt
+
+COPY entrypoint.sh /env/entrypoint.sh
+RUN chmod +x /env/entrypoint.sh
+
+COPY compile.sh /env/compile.sh
+RUN chmod +x /env/compile.sh
+
+ENTRYPOINT [ "/env/entrypoint.sh" ]

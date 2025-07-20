@@ -31,13 +31,13 @@ from ema_pytorch import EMA
 
 from accelerate import Accelerator
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.attend import Attend
-import Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
+from CTDenoising_Diffusion_N2N.denoising_diffusion_pytorch.denoising_diffusion_pytorch.attend import Attend
+import CTDenoising_Diffusion_N2N.denoising_diffusion_pytorch.denoising_diffusion_pytorch.kernel as kernel
 
-from Diffusion_denoising_thin_slice.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
+from CTDenoising_Diffusion_N2N.denoising_diffusion_pytorch.denoising_diffusion_pytorch.version import __version__
 
-import Diffusion_denoising_thin_slice.functions_collection as ff
-import Diffusion_denoising_thin_slice.Data_processing as Data_processing
+import CTDenoising_Diffusion_N2N.functions_collection as ff
+import CTDenoising_Diffusion_N2N.Data_processing as Data_processing
 
 # constants
 
@@ -1340,8 +1340,8 @@ class Sampler(object):
         
         self.histogram_equalization = self.generator.histogram_equalization
         print('histogram equalization: ', self.histogram_equalization)
-        self.bins = np.load('/mnt/camca_NAS/denoising/Data/histogram_equalization/bins.npy')
-        self.bins_mapped = np.load('/mnt/camca_NAS/denoising/Data/histogram_equalization/bins_mapped.npy')        
+        self.bins = self.generator.bins
+        self.bins_mapped = self.generator.bins_mapped     
         self.background_cutoff = self.generator.background_cutoff
         self.maximum_cutoff = self.generator.maximum_cutoff
         self.normalize_factor = self.generator.normalize_factor
