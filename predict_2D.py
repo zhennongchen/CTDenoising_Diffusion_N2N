@@ -11,11 +11,11 @@ import Diffusion_denoising_thin_slice.Build_lists.Build_list as Build_list
 import Diffusion_denoising_thin_slice.Generator as Generator
 
 ###########
-trial_name = 'unsupervised_gaussian_2D_1.25mm'
+trial_name = 'unsupervised_gaussian_2D_current_beta10'
 problem_dimension = '2D'
 supervision = 'supervised' if trial_name[0:2] == 'su' else 'unsupervised'; print('supervision:', supervision)
 
-epoch = 73
+epoch = 49
 trained_model_filename = os.path.join('/mnt/camca_NAS/denoising/models', trial_name, 'models/model-' + str(epoch)+ '.pt')
 save_folder = os.path.join('/mnt/camca_NAS/denoising/models', trial_name, 'pred_images_thin'); os.makedirs(save_folder, exist_ok=True)
 
@@ -72,7 +72,7 @@ diffusion_model = ddpm.GaussianDiffusion(
     clip_or_not = True, 
     clip_range = clip_range, )
 
-for i in range(0,n.shape[0]):
+for i in range(0,5):#n.shape[0]):
     patient_id = patient_id_list[n[i]]
     patient_subid = patient_subid_list[n[i]]
     random_num = random_num_list[n[i]]
@@ -92,7 +92,7 @@ for i in range(0,n.shape[0]):
     condition_img = nb.load(condition_file).get_fdata()[:,:,30:80]
 
     if do_pred_or_avg == 'pred':
-        for iteration in range(1,11):
+        for iteration in range(1,21):
             print('iteration:', iteration)
 
             # make folders
@@ -154,7 +154,7 @@ for i in range(0,n.shape[0]):
         for j in range(total_predicts):
             loaded_data[:,:,:,j] = nb.load(os.path.join(made_predicts[j],'pred_img.nii.gz')).get_fdata()
 
-        for avg_num in [10]:#[2,4,6,8,10,12,14,16,18,20]:#range(1,total_predicts+1):
+        for avg_num in [10,20]:#[2,4,6,8,10,12,14,16,18,20]:#range(1,total_predicts+1):
             print('avg_num:', avg_num)
             predicts_avg = np.zeros((gt_img.shape[0], gt_img.shape[1], gt_img.shape[2], avg_num))
             print('predict_num:', avg_num)
