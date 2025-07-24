@@ -10,8 +10,6 @@ import lpips
 import torch
 import CTDenoising_Diffusion_N2N.Data_processing as dp
 from skimage.metrics import structural_similarity as compare_ssim
-# import CTProjector.src.ct_projector.projector.numpy as ct_projector
-
 
 
 def pick_random_from_segments(X):
