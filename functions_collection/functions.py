@@ -6,25 +6,12 @@ import math
 import SimpleITK as sitk
 import cv2
 import random
+import lpips
+import torch
 import CTDenoising_Diffusion_N2N.Data_processing as dp
 from skimage.metrics import structural_similarity as compare_ssim
 # import CTProjector.src.ct_projector.projector.numpy as ct_projector
 
-def create_lowpass_mask(shape, radius):
-    H, W, S = shape
-    center = np.array([H // 2, W // 2, S // 2])
-    y, x, z = np.ogrid[:H, :W, :S]  # 顺序和 shape 对应
-    dist = np.sqrt((x - center[1])**2 + (y - center[0])**2 + (z - center[2])**2)
-    mask = dist <= radius
-    return mask
-
-def create_2d_lowpass_mask(shape, radius):
-    H, W = shape
-    cy, cx = H // 2, W // 2
-    y, x = np.ogrid[:H, :W]
-    dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-    mask = dist <= radius
-    return mask
 
 
 def pick_random_from_segments(X):
@@ -124,10 +111,6 @@ def make_folder(folder_list):
     for i in folder_list:
         os.makedirs(i,exist_ok = True)
 
-
-
-
-
 # function: save grayscale image
 def save_grayscale_image(a,save_path,normalize = True, WL = 50, WW = 100):
     I = np.zeros((a.shape[0],a.shape[1],3))
@@ -139,16 +122,6 @@ def save_grayscale_image(a,save_path,normalize = True, WL = 50, WW = 100):
         I[:,:,i] = a
     
     Image.fromarray((I*255).astype('uint8')).save(save_path)
-
-
-# function: normalize translation control points:
-def convert_translation_control_points(t, dim, from_pixel_to_1 = True):
-    if from_pixel_to_1 == True: # convert to a space -1 ~ 1
-        t = [tt / dim * 2 for tt in t]
-    else: # backwards
-        t = [tt / 2 * dim for tt in t]
-    
-    return np.asarray(t)
 
 
 # function: comparison error
@@ -196,87 +169,6 @@ def compare(a, b,  cutoff_low = 0 ,cutoff_high = 1000000):
 
     return mae, mse, rmse, r_rmse, ssim,psnr
 
-
-# function: dice
-def np_categorical_dice(pred, truth, k):
-    """ Dice overlap metric for label k """
-    A = (pred == k).astype(np.float32)
-    B = (truth == k).astype(np.float32)
-    return 2 * np.sum(A * B) / (np.sum(A) + np.sum(B))
-
-
-# function: erode and dilate
-def erode_and_dilate(img_binary, kernel_size, erode = None, dilate = None):
-    img_binary = img_binary.astype(np.uint8)
-
-    kernel = np.ones(kernel_size, np.uint8)  
-
-    if dilate is True:
-        img_binary = cv2.dilate(img_binary, kernel, iterations = 1)
-
-    if erode is True:
-        img_binary = cv2.erode(img_binary, kernel, iterations = 1)
-    return img_binary
-
-
-
-# function: round difference: if abs(a-b)  % 1 <= threshold, then a-b = math.floor(a-b)
-def round_diff(pred, gt, threshold):
-    # b is ground truth
-    A = pred - gt 
-    rounded_A = np.where((np.abs(A) % 1 <= threshold) & (A < 0), np.ceil(A), np.where((np.abs(A) % 1 <= threshold) & (A > 0), np.floor(A), A))
-    return gt + rounded_A
-
-# # function: read real-scan projection data
-# def read_projection_data(
-#     input_dir, projector: ct_projector.ct_projector, start_view, end_view, nrot_per_slab, nz_per_slice
-# ):
-#     min_file_bytes = 1024 * 10  # file size should be at least 10MB
-
-#     if end_view < 0:
-#         end_view = len(find_all_target_files(['slab_*.nii.gz'], input_dir)) -1 
-       
-#     filenames = []
-#     for iview in range(start_view, end_view + 1):
-#         filename = os.path.join(input_dir, f'slab_{iview}.nii.gz')
-#         if not os.path.exists(filename):
-#             break
-#         if os.path.getsize(filename) < min_file_bytes:
-#             break
-#         filenames.append(filename)
-
-#     prjs = []
-#     print('Reading data from {0} files'.format(len(filenames)), flush=True)
-#     for i, filename in enumerate(filenames):
-#         print(i, end=',', flush=True)
-#         prj = sitk.GetArrayFromImage(sitk.ReadImage(filename))
-#         prj = prj.astype(np.float32)
-#         # print('shape: ', prj.shape)
-#         prjs.append(prj)
-#     prjs = np.array(prjs)
-
-#     prjs = prjs.reshape([
-#         nrot_per_slab,
-#         prjs.shape[0] // nrot_per_slab,
-#         prjs.shape[1],
-#         prjs.shape[2] // nz_per_slice,
-#         nz_per_slice,
-#         prjs.shape[3],
-#     ])
-
-#     print('prjs shape ',prjs.shape)
-
-#     prjs = np.mean(prjs, axis=(0, 4))
-
-#     print('prjs shape ',prjs.shape)
-
-#     # update projector
-#     projector.nv = prjs.shape[2]
-#     projector.nz = prjs.shape[2]
-#     projector.dv = projector.dv * nz_per_slice
-#     projector.dz = projector.dv
-
-#     return prjs, projector
 
 # function: hanning filter
 def hann_filter(x, projector):
@@ -329,5 +221,54 @@ def sample_patch_origins(patch_origins, N, include_original_list = None):
         pixels = patch_origins + pixels
 
     return pixels
+
+# function: compute LPIPS for 3D data
+def compute_lpips_3d(prediction, ground_truth,mask = None, max_val = None, min_val = None, net_type='vgg'):
+    assert prediction.shape == ground_truth.shape, "Shape mismatch between prediction and ground truth!"
+    
+    # Convert to float32
+    prediction = prediction.astype(np.float32)
+    ground_truth = ground_truth.astype(np.float32)
+
+    if mask is not None:
+        prediction[mask==0] = np.min(prediction)
+        ground_truth[mask==0] = np.min(ground_truth)
+
+    # Normalize to [-1, 1] range as required by LPIPS
+    if max_val == None:
+        prediction = (prediction - prediction.min()) / (prediction.max() - prediction.min()) * 2 - 1 
+    else:
+        prediction = (prediction - min_val) / (max_val - min_val) * 2 - 1
+    if max_val == None:
+        ground_truth = (ground_truth - ground_truth.min()) / (ground_truth.max() - ground_truth.min()) * 2 - 1
+    else:
+        ground_truth = (ground_truth - min_val) / (max_val - min_val) * 2 - 1
+
+    # Initialize LPIPS loss model
+    loss_fn = lpips.LPIPS(net=net_type).to('cuda' if torch.cuda.is_available() else 'cpu')
+
+    lpips_scores = []
+    
+    # Loop through each slice along the z-axis
+    for i in range(prediction.shape[2]):
+        pred_slice = prediction[:, :, i]  # Get 2D slice
+        gt_slice = ground_truth[:, :, i]  # Get corresponding GT slice
+
+        # Convert numpy arrays to torch tensors
+        pred_tensor = torch.tensor(pred_slice).unsqueeze(0).unsqueeze(0)  # Shape: [1,1,H,W]
+        gt_tensor = torch.tensor(gt_slice).unsqueeze(0).unsqueeze(0)
+
+        # Move to GPU if available
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pred_tensor = pred_tensor.to(device)
+        gt_tensor = gt_tensor.to(device)
+        loss_fn = loss_fn.to(device)
+
+        # Compute LPIPS score for this slice
+        lpips_score = loss_fn(pred_tensor, gt_tensor)
+        lpips_scores.append(lpips_score.item())
+
+    # Compute average LPIPS score across all slices
+    return np.mean(lpips_scores)
 
     
