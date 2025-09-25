@@ -2,7 +2,7 @@
 **Author: Zhennong Chen, PhD**<br />
 
 This is the GitHub repo based on a conference paper submitted to SPIE: <br />
-*Noise2Noise Diffusion Model for Thin-Slice Brain CT Denoising without Clean Training Data *<br />
+*Noise2Noise Diffusion Model for Thin-Slice Brain CT Denoising without Clean Training Data*<br />
 Authors: Zhennong Chen, Siyeop Yoon, Matthew Tivan, Junyoung Park, Quanzheng Li, Dufan Wu<br />
 
 **Citation**: TBD
