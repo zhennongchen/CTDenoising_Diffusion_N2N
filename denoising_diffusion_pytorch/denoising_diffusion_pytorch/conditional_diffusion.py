@@ -1120,9 +1120,6 @@ class Trainer(object):
         dl_val = DataLoader(self.ds_val, batch_size = train_batch_size, shuffle = False, pin_memory = True, num_workers = 0)# cpu_count())
         self.dl_val = self.accelerator.prepare(dl_val)
 
-        # target ("mean": mean of adjacent slices, "current": current slice itself)
-        self.target = self.ds.target
-        print('target: ', self.target)
 
         # optimizer
         self.opt = Adam(diffusion_model.parameters(), lr = train_lr, betas = adam_betas)
@@ -1219,10 +1216,7 @@ class Trainer(object):
                         # bias loss
                         gauss_kernel = kernel.get_gaussian_kernel(kernel_size=37, sigma=6)
                         lowpass_out = kernel.apply_lowpass_gaussian(model_output, gauss_kernel)
-                        if self.target == 'mean':
-                            lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_condition), gauss_kernel)
-                        elif self.target == 'current':
-                            lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_x0), gauss_kernel)
+                        lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_x0), gauss_kernel)
 
                         bias_loss = F.mse_loss(lowpass_out, lowpass_target, reduction='mean')
 
@@ -1273,10 +1267,7 @@ class Trainer(object):
                                 # bias loss
                                 gauss_kernel = kernel.get_gaussian_kernel(kernel_size=37, sigma=6)
                                 lowpass_out = kernel.apply_lowpass_gaussian(model_output, gauss_kernel)
-                                if self.target == 'mean':
-                                    lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_condition), gauss_kernel)
-                                elif self.target == 'current':
-                                    lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_x0), gauss_kernel)
+                                lowpass_target = kernel.apply_lowpass_gaussian(torch.clone(data_x0), gauss_kernel)
 
                                 bias_loss = F.mse_loss(lowpass_out, lowpass_target, reduction='mean')
 
