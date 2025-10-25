@@ -1245,9 +1245,12 @@ class Trainer(object):
 
                 # save the model
                 if self.step !=0 and divisible_by(self.step, self.save_model_every):
+                   print('i am saving model at step: ', self.step)
                    self.save(self.step)
+                   print('model saved')
                 # update the parameter
                 if self.step !=0 and divisible_by(self.step, self.train_lr_decay_every):
+                    print('i am updating learning rate at step: ', self.step)
                     self.scheduler.step()
 
                 self.ema.update()
