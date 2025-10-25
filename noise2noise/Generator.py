@@ -144,7 +144,7 @@ class Dataset_2D(Dataset):
 
         if img_filename != self.current_img_file:
             img = self.load_file(img_filename)
-            print('load image file: ', img_filename)
+            # print('load image file: ', img_filename)
             self.current_img_file = img_filename
             self.current_img_data = np.copy(img)
 
